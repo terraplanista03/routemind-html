@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RouteMind</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#eceff2;--card:#fff;--ink:#14202b;--mut:#5b6b7a;--line:#d5dbe1;--route:#0a7d6e;--acc:#f0a50f;--acc-ink:#2a1d00;--bad:#b3261e;--map:#f6f8fa;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f161d;--card:#18222c;--ink:#e8eef3;--mut:#93a3b2;--line:#2c3a47;--route:#3ccfba;--acc:#f5b838;--bad:#ff8a80;--map:#121b23;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f161d;--card:#18222c;--ink:#e8eef3;--mut:#93a3b2;--line:#2c3a47;--route:#3ccfba;--acc:#f5b838;--bad:#ff8a80;--map:#121b23;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Bricolage Grotesque",system-ui,sans-serif}
+header{padding:22px 20px 6px;max-width:1180px;margin:auto;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.02em}
+header p{margin:0;color:var(--mut)}
+main{max-width:1180px;margin:auto;padding:14px 20px 40px;display:grid;grid-template-columns:360px 1fr;gap:18px}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+section,.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+label{display:block;font-weight:600;margin:12px 0 4px}label:first-child{margin-top:0}
+input,textarea,select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+textarea{min-height:170px;resize:vertical;font-size:14px}
+input:focus,textarea:focus,select:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--route);outline-offset:1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{color:var(--mut);font-size:13px;margin:4px 0 0}
+.chk{display:flex;gap:8px;align-items:center;font-weight:400;margin:10px 0 0}.chk input{width:auto}
+button,.btn{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 12px;cursor:pointer;text-decoration:none;display:inline-block}
+button:hover,.btn:hover{border-color:var(--route)}
+.go{width:100%;margin-top:14px;background:var(--acc);color:var(--acc-ink);border-color:var(--acc);padding:12px;font-size:16px}
+.go:disabled{opacity:.6;cursor:wait}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#msg{margin-top:10px;font-size:14px}.err{color:var(--bad)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.stat{border-left:3px solid var(--route);padding:2px 10px}.stat b{display:block;font-size:22px;font-weight:800}.stat span{color:var(--mut);font-size:13px}
+.map{width:100%;height:auto;background:var(--map);border:1px solid var(--line);border-radius:10px;display:block}
+ol{list-style:none;margin:14px 0 0;padding:0}
+li{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.n{width:28px;height:28px;border-radius:50%;background:var(--route);color:var(--bg);display:grid;place-items:center;font-weight:800;font-size:13px}
+.n.o{border-radius:6px;background:var(--acc);color:var(--acc-ink)}
+li small{color:var(--mut);display:block}
+.mv button{padding:3px 8px}
+.empty{color:var(--mut);text-align:center;padding:50px 10px}
+.legs a{margin:0 6px 6px 0}
+h2{font-size:17px;margin:18px 0 8px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><h1>RouteMind</h1><p>Monte a ordem de entregas com menor distância, direto no navegador.</p></header>
+<main>
+<section aria-label="Dados da rota">
+<label for="origem">Origem</label>
+<input id="origem" placeholder="Ex.: Rua Augusta 1500, São Paulo, SP">
+<label for="stops">Entregas <span id="cnt" class="hint" style="display:inline">(0)</span></label>
+<textarea id="stops" placeholder="Um por linha, em qualquer ordem:&#10;Rua Augusta 1500 São Paulo SP&#10;Av. Paulista, 900, São Paulo - SP"></textarea>
+<p class="hint">Escreva rua, número, cidade e estado, sem se preocupar com vírgulas ou ordem. A posição é estimada pelo Claude, que pede sua permissão na primeira vez.</p>
+<label for="srv">Tempo por parada (min)</label><input id="srv" type="number" min="0" max="240" value="5">
+<label class="chk"><input id="ret" type="checkbox" checked> Voltar à origem no final</label>
+<label class="chk"><input id="opt" type="checkbox" checked> Otimizar a ordem das entregas</label>
+<button class="go" id="gerar">Gerar rota</button>
+<div class="tools"><button id="ex" type="button">Preencher exemplo</button><button id="lim" type="button">Limpar</button></div>
+<div id="msg" role="status" aria-live="polite"></div>
+</section>
+<section id="out" aria-live="polite"><div class="empty">Preencha a origem e as entregas e toque em <b>Gerar rota</b>.</div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const S={origin:null,stops:[]};
+const cache={};
+const KEY="routemind:v1";
+
+function parseLine(t){
+  t=t.trim();if(!t)return null;
+  const m=t.match(/(-?\d{1,3}\.\d+)\s*[,;]\s*(-?\d{1,3}\.\d+)\s*$/);
+  if(m){const lat=+m[1],lng=+m[2];
+    if(Math.abs(lat)<=90&&Math.abs(lng)<=180){
+      const label=t.slice(0,m.index).trim().replace(/[|:–-]\s*$/,"").trim()||m[1]+", "+m[2];
+      return{label,lat,lng,q:t};}}
+  return{label:t,q:t};
+}
+/* Busca de enderecos fora do claude.ai (VS Code, site proprio): Nominatim/OpenStreetMap.
+   Para producao, troque por ViaCEP/BrasilAPI + Geoapify, Mapbox ou Google chamados pelo seu servidor. */
+async function geocodeNominatim(pts){
+  const out=[];
+  for(let i=0;i<pts.length;i++){
+    try{
+      const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q="+encodeURIComponent(pts[i].q));
+      const j=r.ok?await r.json():[];
+      if(j[0])out.push({i,lat:+j[0].lat,lng:+j[0].lon,precisao:"endereco"});
+    }catch(e){}
+    if(i<pts.length-1)await new Promise(r=>setTimeout(r,1100));
+  }
+  return out;
+}
+async function geocodeAll(pts){
+  if(typeof claude==="undefined"||!claude.use)return geocodeNominatim(pts);
+  const sample=await claude.use("sample");
+  if(!sample)return geocodeNominatim(pts);
+  const lista=pts.map((p,i)=>i+": "+p.q).join("\n");
+  const r=await sample.json('Você é um geocodificador. Para cada endereço abaixo (rua, número, cidade e estado, em qualquer ordem, provavelmente no Brasil), estime a latitude e a longitude o mais precisas possível. Responda SOMENTE um array JSON, um item por endereço, no formato {"i":número,"lat":número ou null,"lng":número ou null,"precisao":"endereco"|"rua"|"bairro"|"cidade"}. Use null se não souber localizar. Não invente: se só souber a cidade, use precisao "cidade".\n\n'+lista,{modelTier:"default"});
+  return Array.isArray(r)?r:[];
+}
+const num=id=>{const v=parseFloat($(id).value);return isNaN(v)?null:v};
+const hav=(a,b)=>{const r=Math.PI/180,x=Math.sin((b.lat-a.lat)*r/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin((b.lng-a.lng)*r/2)**2;return 2*6371*Math.asin(Math.sqrt(x))};
+function cost(o){let c=0,p=S.origin;for(const s of o){c+=hav(p,s);p=s}if(S.ret)c+=hav(p,S.origin);return c}
+function optimize(list){
+  let rest=list.slice(),o=[],p=S.origin;
+  while(rest.length){let bi=0,bd=Infinity;rest.forEach((s,i)=>{const d=hav(p,s);if(d<bd){bd=d;bi=i}});p=rest.splice(bi,1)[0];o.push(p)}
+  let imp=true,g=0;
+  while(imp&&g++<40){imp=false;
+    for(let i=0;i<o.length-1;i++)for(let j=i+1;j<o.length;j++){
+      const n=o.slice(0,i).concat(o.slice(i,j+1).reverse(),o.slice(j+1));
+      if(cost(n)<cost(o)-1e-9){o=n;imp=true}}}
+  return o;
+}
+const hm=m=>{m=Math.round(m);const d=Math.floor(m/1440);m=((m%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0")+(d?" (+"+d+"d)":"")};
+const dur=m=>{m=Math.round(m);return m>=60?Math.floor(m/60)+" h "+String(m%60).padStart(2,"0")+" min":m+" min"};
+const pt=p=>p.lat.toFixed(6)+","+p.lng.toFixed(6);
+
+function legsOf(){
+  const seq=[S.origin,...S.stops].concat(S.ret?[S.origin]:[]);
+  let km=0,rows=[];
+  for(let i=1;i<seq.length;i++){
+    const d=hav(seq[i-1],seq[i]);km+=d;
+    rows.push({p:seq[i],d,last:S.ret&&i===seq.length-1});
+  }
+  return{seq,rows,km};
+}
+function mapSvg(seq){
+  const W=640,H=420,P=34,la=seq.map(p=>p.lat),ln=seq.map(p=>p.lng);
+  const k=Math.cos(la.reduce((a,b)=>a+b)/la.length*Math.PI/180);
+  const x0=Math.min(...ln),x1=Math.max(...ln),y0=Math.min(...la),y1=Math.max(...la);
+  const sx=(x1-x0)*k||1e-4,sy=(y1-y0)||1e-4,sc=Math.min((W-2*P)/sx,(H-2*P)/sy);
+  const ox=(W-sx*sc)/2,oy=(H-sy*sc)/2;
+  const X=p=>ox+(p.lng-x0)*k*sc,Y=p=>H-(oy+(p.lat-y0)*sc);
+  let s='<svg class="map" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Mapa esquemático da rota">';
+  s+='<polyline fill="none" stroke="var(--route)" stroke-width="3" stroke-linejoin="round" points="'+seq.map(p=>X(p).toFixed(1)+","+Y(p).toFixed(1)).join(" ")+'"/>';
+  S.stops.forEach((p,i)=>{s+='<circle cx="'+X(p).toFixed(1)+'" cy="'+Y(p).toFixed(1)+'" r="11" fill="var(--route)"/><text x="'+X(p).toFixed(1)+'" y="'+(Y(p)+4).toFixed(1)+'" text-anchor="middle" font-size="12" font-weight="700" fill="var(--map)">'+(i+1)+'</text>'});
+  const o=S.origin;s+='<rect x="'+(X(o)-11).toFixed(1)+'" y="'+(Y(o)-11).toFixed(1)+'" width="22" height="22" rx="5" fill="var(--acc)"/><text x="'+X(o).toFixed(1)+'" y="'+(Y(o)+4).toFixed(1)+'" text-anchor="middle" font-size="12" font-weight="800" fill="#2a1d00">O</text>';
+  return s+"</svg>";
+}
+function gmaps(seq){
+  const out=[],step=9;let i=0;
+  while(i<seq.length-1){
+    const j=Math.min(i+step+1,seq.length-1),seg=seq.slice(i,j+1);
+    out.push("https://www.google.com/maps/dir/?api=1&travelmode=driving&origin="+pt(seg[0])+"&destination="+pt(seg[seg.length-1])+(seg.length>2?"&waypoints="+seg.slice(1,-1).map(pt).join("%7C"):""));
+    i=j;
+  }
+  return out;
+}
+function textRoute(L){
+  return ["Rota RouteMind","Origem: "+S.origin.label].concat(
+    L.rows.map((r,i)=>(r.last?"Retorno: ":(i+1)+". ")+r.p.label+" - "+r.d.toFixed(1)+" km"),
+    ["Total: "+L.km.toFixed(1)+" km"]).join("\n");
+}
+function csvRoute(L){
+  return ["ordem;nome;latitude;longitude;km_trecho"].concat(L.rows.map((r,i)=>[r.last?"retorno":i+1,'"'+r.p.label.replace(/"/g,'""')+'"',r.p.lat,r.p.lng,r.d.toFixed(2)].join(";"))).join("\n");
+}
+async function copy(txt,btn){
+  try{await navigator.clipboard.writeText(txt);const o=btn.textContent;btn.textContent="Copiado";setTimeout(()=>btn.textContent=o,1500)}
+  catch(e){const ta=document.createElement("textarea");ta.value=txt;ta.style.cssText="width:100%;min-height:140px;margin-top:10px";btn.parentNode.after(ta);ta.select();}
+}
+function render(){
+  const L=legsOf(),svc=S.s*S.stops.length;
+  const links=gmaps(L.seq);
+  let h='<div class="stats"><div class="stat"><b>'+S.stops.length+'</b><span>entregas</span></div><div class="stat"><b>'+L.km.toFixed(1)+' km</b><span>distância estimada</span></div><div class="stat"><b>'+dur(svc)+'</b><span>tempo nas paradas</span></div></div>';
+  h+=mapSvg(L.seq);
+  h+='<div class="tools"><button id="re" type="button">Reotimizar</button><button id="inv" type="button">Inverter ordem</button><button id="cpT" type="button">Copiar roteiro</button><button id="cpC" type="button">Copiar CSV</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(textRoute(L))+'">Enviar por WhatsApp</a></div>';
+  h+='<h2>Abrir no Google Maps</h2><div class="legs">'+links.map((u,i)=>'<a class="btn" target="_blank" rel="noopener" href="'+u+'">'+(links.length>1?"Trecho "+(i+1):"Abrir rota")+'</a>').join("")+'</div>';
+  h+='<ol><li><span class="n o">O</span><div><b>'+esc(S.origin.label)+'</b><small>Ponto de partida</small></div><span></span></li>';
+  L.rows.forEach((r,i)=>{
+    if(r.last){h+='<li><span class="n o">O</span><div><b>Retorno à origem</b><small>'+r.d.toFixed(1)+' km</small></div><span></span></li>';return}
+    h+='<li><span class="n">'+(i+1)+'</span><div><b>'+esc(r.p.label)+'</b><small>'+r.d.toFixed(1)+' km'+(S.s?' · parada de '+S.s+' min':'')+'</small></div><span class="mv"><button data-up="'+i+'" aria-label="Subir parada '+(i+1)+'">↑</button> <button data-dn="'+i+'" aria-label="Descer parada '+(i+1)+'">↓</button> <button data-rm="'+i+'" aria-label="Remover parada '+(i+1)+'">✕</button></span></li>';
+  });
+  h+='</ol><p class="hint">Distâncias em linha reta entre as paradas. São estimativas, não o trajeto exato do GPS.</p>';
+  $("#out").innerHTML=h;
+  $("#re").onclick=()=>{S.stops=S.opt?optimize(S.stops):S.stops;render()};
+  $("#inv").onclick=()=>{S.stops.reverse();render()};
+  $("#cpT").onclick=e=>copy(textRoute(L),e.target);
+  $("#cpC").onclick=e=>copy(csvRoute(L),e.target);
+  $("#out").onclick=e=>{
+    const b=e.target.closest("button");if(!b)return;
+    const d=b.dataset,s=S.stops;
+    if(d.up!==undefined&&+d.up>0){const i=+d.up;[s[i-1],s[i]]=[s[i],s[i-1]]}
+    else if(d.dn!==undefined&&+d.dn<s.length-1){const i=+d.dn;[s[i+1],s[i]]=[s[i],s[i+1]]}
+    else if(d.rm!==undefined&&s.length>1){s.splice(+d.rm,1)}
+    else return;
+    render();
+  };
+}
+function setMsg(t,bad){const m=$("#msg");m.className=bad?"err":"";m.innerHTML=t}
+function saveForm(){try{localStorage.setItem(KEY,JSON.stringify({o:$("#origem").value,s:$("#stops").value,t:$("#srv").value,r:$("#ret").checked,p:$("#opt").checked}))}catch(e){}}
+function loadForm(){try{const d=JSON.parse(localStorage.getItem(KEY)||"null");if(!d)return;$("#origem").value=d.o||"";$("#stops").value=d.s||"";$("#srv").value=d.t??5;$("#ret").checked=d.r!==false;$("#opt").checked=d.p!==false}catch(e){}}
+function count(){$("#cnt").textContent="("+$("#stops").value.split("\n").filter(l=>l.trim()).length+")"}
+$("#stops").addEventListener("input",count);
+$("#ex").onclick=()=>{$("#origem").value="Rua Augusta 1500 São Paulo SP";$("#stops").value="Avenida Paulista 900 São Paulo SP\nRua Vergueiro 3000 São Paulo SP\nAvenida Brigadeiro Faria Lima 2000 São Paulo SP\nRua da Mooca 1500 São Paulo SP\nAvenida Celso Garcia 3000 São Paulo SP\nAvenida Cruzeiro do Sul 1000 São Paulo SP";count()};
+$("#lim").onclick=()=>{$("#origem").value="";$("#stops").value="";count();$("#out").innerHTML='<div class="empty">Preencha a origem e as entregas e toque em <b>Gerar rota</b>.</div>';setMsg("")};
+$("#gerar").onclick=async()=>{
+  const btn=$("#gerar");
+  const s=num("#srv");
+  if(s===null||s<0)return setMsg("Informe o tempo por parada (0 ou mais minutos).",1);
+  const o=parseLine($("#origem").value);
+  const lines=$("#stops").value.split("\n").map(parseLine).filter(Boolean);
+  if(!o)return setMsg("Informe a origem.",1);
+  if(!lines.length)return setMsg("Informe ao menos uma entrega.",1);
+  if(lines.length>100)return setMsg("O limite é de 100 entregas por rota.",1);
+  saveForm();btn.disabled=true;
+  const all=[o,...lines],falhas=[],vagos=[],pend=all.filter(p=>p.lat===undefined);
+  if(pend.length){
+    setMsg("Localizando "+pend.length+" endereço(s)…");
+    try{
+      const res=await geocodeAll(pend);
+      res.forEach(r=>{const p=r&&pend[r.i];if(p&&typeof r.lat==="number"&&typeof r.lng==="number"&&Math.abs(r.lat)<=90&&Math.abs(r.lng)<=180){p.lat=r.lat;p.lng=r.lng;if(r.precisao==="bairro"||r.precisao==="cidade")vagos.push(p.label)}});
+    }catch(e){
+      btn.disabled=false;
+      return setMsg(e&&e.code==="not_granted"?"Para localizar os endereços, permita o uso do Claude quando a página pedir.":"Não foi possível localizar os endereços agora. Tente novamente em instantes.",1);
+    }
+    pend.forEach(p=>{if(p.lat===undefined)falhas.push(p.label)});
+  }
+  btn.disabled=false;
+  if(o.lat===undefined)return setMsg("Não consegui localizar a origem. Confira rua, número, cidade e estado.",1);
+  const ok=lines.filter(p=>p.lat!==undefined);
+  if(!ok.length)return setMsg("Nenhum endereço foi localizado. Confira rua, número, cidade e estado.",1);
+  Object.assign(S,{origin:o,s,ret:$("#ret").checked,opt:$("#opt").checked});
+  S.stops=S.opt?optimize(ok):ok;
+  setMsg(falhas.length?"Não consegui localizar "+falhas.length+" endereço(s) e os deixei de fora: "+esc(falhas.join("; "))+". Confira se tem rua, cidade e estado.":vagos.length?"Rota gerada. Localização aproximada (só bairro ou cidade) para: "+esc(vagos.join("; "))+".":"Rota gerada. As posições são estimadas.",falhas.length>0);
+  render();
+};
+loadForm();count();
+</script>
+</body>
+</html>
